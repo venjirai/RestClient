@@ -159,7 +159,7 @@ public class RestClient
 
     private static OkHttpClient.Builder enableTls12OnPreLollipop(OkHttpClient.Builder client)
     {
-        if (Build.VERSION.SDK_INT == 19 && Build.VERSION.SDK_INT < 21)
+        if (Build.VERSION.SDK_INT >= 16 && Build.VERSION.SDK_INT <= 21)
         {
             try
             {
@@ -245,7 +245,7 @@ public class RestClient
                             {
                                 try
                                 {
-                                    callback.onSuccess(response, finalData);
+                                    callback.onSuccess(call, response, finalData);
                                 }
                                 catch (Exception e)
                                 {
