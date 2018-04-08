@@ -8,5 +8,5 @@ import okhttp3.Response;
 
 public interface OnGlobalErrorListener
 {
-    void onError(Call call, Request request, @Nullable Response response, Error error);
+    void onError(RestCall restCall, @Nullable Response response, Error error);
 }
