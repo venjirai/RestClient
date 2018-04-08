@@ -187,12 +187,28 @@ public class RestClient
         return client;
     }
 
-
-
-    public <T> Call newCall(final Request request, final boolean callGlobalErrorListener, final JsonParserWorker jsonParserWorker, final RestResponse<T> callback)
+    @SuppressWarnings("unchecked")
+    public <T> RestCall makeCall(final Request request, final boolean callGlobalErrorListener, final JsonParserWorker jsonParserWorker, final RestResponse<T> callback)
     {
-        Call call = client.newCall(request);
-        call.enqueue(new Callback()
+        return new RestCall(request, client.newCall(request), callGlobalErrorListener, jsonParserWorker, callback);
+    }
+
+    public <T> RestCall makeAndExecuteCall(final Request request, final boolean callGlobalErrorListener, final JsonParserWorker jsonParserWorker, final RestResponse<T> callback)
+    {
+        RestCall restCall = new RestCall<T>(request, client.newCall(request), callGlobalErrorListener, jsonParserWorker, callback);
+        executeCall(restCall);
+        return restCall;
+    }
+
+    public <T> void executeCalls(final List<RestCall<T>> restCalls)
+    {
+        for (RestCall restCall : restCalls)
+            executeCall(restCall);
+    }
+
+    public <T> void executeCall(final RestCall<T> restCall)
+    {
+        restCall.call.enqueue(new Callback()
         {
             Handler handler = new Handler(Looper.getMainLooper());
 
@@ -205,18 +221,17 @@ public class RestClient
                     public void run()
                     {
                         if (loggingEnabled)
-                            Log.w("RestClient", "onFailure[" + request.tag() + "]: " + e.getMessage());
-
+                            Log.w("RestClient", "onFailure[" + restCall.request.tag() + "]: " + e.getMessage());
                         try
                         {
-                            callback.onFailure(call, new Error(0, e.getMessage(), failureMessage));
+                            restCall.callback.onFailure(call, new Error(0, e.getMessage(), failureMessage));
                         }
                         catch (Exception e)
                         {
                             e.printStackTrace();
                         }
-                        if (callGlobalErrorListener && globalErrorListener != null)
-                            globalErrorListener.onError(call, request, null, new Error(0, e.getMessage(), failureMessage));
+                        if (restCall.callGlobalErrorListener && globalErrorListener != null)
+                            globalErrorListener.onError(call, restCall.request, null, new Error(0, e.getMessage(), failureMessage));
                     }
                 });
             }
@@ -231,11 +246,11 @@ public class RestClient
                     try
                     {
                         T data = null;
-                        if (jsonParserWorker != null)
-                            data = jsonParserWorker.run(responseBody);
+                        if (restCall.jsonParserWorker != null)
+                            data = restCall.jsonParserWorker.run(responseBody);
 
                         if (loggingEnabled)
-                            Log.w("RestClient", "onSuccess[" + request.tag() + "]: " + responseBody);
+                            Log.w("RestClient", "onSuccess[" + restCall.request.tag() + "]: " + responseBody);
 
                         final T finalData = data;
                         handler.post(new Runnable()
@@ -245,7 +260,7 @@ public class RestClient
                             {
                                 try
                                 {
-                                    callback.onSuccess(call, response, finalData);
+                                    restCall.callback.onSuccess(call, response, finalData);
                                 }
                                 catch (Exception e)
                                 {
@@ -266,15 +281,15 @@ public class RestClient
                             {
                                 try
                                 {
-                                    callback.onFailure(call, new Error(response.code(), "server error", "server error"));
+                                    restCall.callback.onFailure(call, new Error(response.code(), "server error", "server error"));
                                 }
                                 catch (Exception e)
                                 {
                                     e.printStackTrace();
                                 }
 
-                                if (callGlobalErrorListener && globalErrorListener != null)
-                                    globalErrorListener.onError(call, request, response, new Error(response.code(), "server error", "server error"));
+                                if (restCall.callGlobalErrorListener && globalErrorListener != null)
+                                    globalErrorListener.onError(call, restCall.request, response, new Error(response.code(), "server error", "server error"));
                             }
                         });
 
@@ -310,7 +325,7 @@ public class RestClient
                     error.setStatusCode(response.code());
 
                     if (loggingEnabled)
-                        Log.w("RestClient", "onFailure[" + request.tag() + "]: " + error.getStatusCode() + " " + error.getCode() + " " + error.getMessage());
+                        Log.w("RestClient", "onFailure[" + restCall.request.tag() + "]: " + error.getStatusCode() + " " + error.getCode() + " " + error.getMessage());
 
                     final Error finalError = error;
                     handler.post(new Runnable()
@@ -320,22 +335,20 @@ public class RestClient
                         {
                             try
                             {
-                                callback.onFailure(call, finalError);
+                                restCall.callback.onFailure(call, finalError);
                             }
                             catch (Exception e)
                             {
                                 e.printStackTrace();
                             }
 
-                            if (callGlobalErrorListener && globalErrorListener != null)
-                                globalErrorListener.onError(call, request, response, finalError);
+                            if (restCall.callGlobalErrorListener && globalErrorListener != null)
+                                globalErrorListener.onError(call, restCall.request, response, finalError);
                         }
                     });
                 }
             }
         });
-
-        return call;
     }
 
     /*
