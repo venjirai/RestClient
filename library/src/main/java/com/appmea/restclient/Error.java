@@ -5,19 +5,20 @@ public class Error
     private int statusCode;
     private String code;
     private String message;
+    private Exception exception;
 
     public Error()
     {
 
     }
 
-    public Error(int statusCode, String code, String message)
+    public Error(int statusCode, String code, String message, Exception e)
     {
         this.statusCode = statusCode;
         this.code = code;
         this.message = message;
+        this.exception = e;
     }
-
 
     public int getStatusCode()
     {
@@ -27,6 +28,16 @@ public class Error
     public String getMessage()
     {
         return message;
+    }
+
+    public Exception getException()
+    {
+        return exception;
+    }
+
+    public void setException(Exception exception)
+    {
+        this.exception = exception;
     }
 
     public void setStatusCode(int statusCode)
