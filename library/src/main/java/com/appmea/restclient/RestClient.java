@@ -222,16 +222,18 @@ public class RestClient
                     {
                         if (loggingEnabled)
                             Log.w("RestClient", "onFailure[" + restCall.request.tag() + "]: " + e.getMessage());
+
+                        Error error = new Error(0, e.getMessage(), failureMessage, e, null);
                         try
                         {
-                            restCall.callback.onFailure(restCall, null, new Error(0, e.getMessage(), failureMessage, e));
+                            restCall.callback.onFailure(restCall, null, error);
                         }
                         catch (Exception e)
                         {
                             e.printStackTrace();
                         }
                         if (restCall.callGlobalErrorListener && globalErrorListener != null)
-                            globalErrorListener.onError(restCall, null, new Error(0, e.getMessage(), failureMessage, e));
+                            globalErrorListener.onError(restCall, null, error);
                     }
                 });
             }
@@ -279,9 +281,10 @@ public class RestClient
                             @Override
                             public void run()
                             {
+                                Error error = new Error(response.code(), "server error", "server error", e, responseBody);
                                 try
                                 {
-                                    restCall.callback.onFailure(restCall, response, new Error(response.code(), "server error", "server error", e));
+                                    restCall.callback.onFailure(restCall, response, error);
                                 }
                                 catch (Exception e)
                                 {
@@ -289,7 +292,7 @@ public class RestClient
                                 }
 
                                 if (restCall.callGlobalErrorListener && globalErrorListener != null)
-                                    globalErrorListener.onError(restCall, response, new Error(response.code(), "server error", "server error", e));
+                                    globalErrorListener.onError(restCall, response, error);
                             }
                         });
 
@@ -308,11 +311,13 @@ public class RestClient
                             Error parsedError = errorParser.run(responseBody);
                             error.setCode(parsedError.getCode());
                             error.setMessage(parsedError.getMessage());
+                            error.setResponseBody(responseBody);
                         }
                         catch (JSONException e)
                         {
                             error.setCode(response.message());
                             error.setMessage(response.message());
+                            error.setResponseBody(responseBody);
                             error.setException(e);
                             e.printStackTrace();
                         }
@@ -321,6 +326,7 @@ public class RestClient
                     {
                         error.setCode(response.message());
                         error.setMessage(response.message());
+                        error.setResponseBody(null);
                         error.setException(new Exception("response body is null"));
                     }
 
