@@ -157,6 +157,36 @@ public class RestClient
         client = enableTls12OnPreLollipop(builder).build();
     }
 
+    public OkHttpClient getClient()
+    {
+        return client;
+    }
+
+    public boolean isLoggingEnabled()
+    {
+        return loggingEnabled;
+    }
+
+    public MediaType getMediaTypeJson()
+    {
+        return mediaTypeJson;
+    }
+
+    public JsonParserWorker getErrorParser()
+    {
+        return errorParser;
+    }
+
+    public String getFailureMessage()
+    {
+        return failureMessage;
+    }
+
+    public OnGlobalErrorListener getGlobalErrorListener()
+    {
+        return globalErrorListener;
+    }
+
     private static OkHttpClient.Builder enableTls12OnPreLollipop(OkHttpClient.Builder client)
     {
         if (Build.VERSION.SDK_INT >= 16 && Build.VERSION.SDK_INT <= 21)
