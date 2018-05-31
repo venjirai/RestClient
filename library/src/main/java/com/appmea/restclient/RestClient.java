@@ -4,6 +4,7 @@ package com.appmea.restclient;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
@@ -33,13 +34,14 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.TlsVersion;
+import okhttp3.WebSocket;
+import okhttp3.WebSocketListener;
 
 public class RestClient
 {
     private static RestClient instance;
     private final OkHttpClient client;
     private final boolean loggingEnabled;
-    public final MediaType mediaTypeJson;
     private JsonParserWorker errorParser;
     private final String failureMessage;
     private OnGlobalErrorListener globalErrorListener;
@@ -52,107 +54,37 @@ public class RestClient
         return instance;
     }
 
-    /**
-     * Creates and initializes a new rest client instance
-     *
-     * @param connectTimeout Connection timeout in seconds
-     * @param readTimeout    Read timeout in seconds
-     * @param loggingEnabled Set to true to print all requests to logcat
-     */
-    public static void initialize(Cache cache, JsonParserWorker errorParser, String failureMessage, int connectTimeout, int readTimeout, boolean loggingEnabled,
-                                  boolean trustAllCertificates, @Nullable OnGlobalErrorListener globalErrorListener)
+    public static void initialize(@NonNull OkHttpClient.Builder builder, @NonNull JsonParserWorker errorParser, @NonNull String networkFailureMessage,
+                                  boolean loggingEnabled, @Nullable OnGlobalErrorListener globalErrorListener)
     {
         if (instance != null)
             throw new RuntimeException("Rest Client can only be initialized once!");
 
-        instance = new RestClient(cache, errorParser, failureMessage, connectTimeout, readTimeout, loggingEnabled, trustAllCertificates, globalErrorListener);
+        instance = new RestClient(builder, errorParser, networkFailureMessage, loggingEnabled, globalErrorListener);
     }
 
-    private RestClient(Cache cache, JsonParserWorker errorParser, String failureMessage, int connectTimeout, int readTimeout, boolean loggingEnabled,
-                       boolean trustAllCertificates, @Nullable OnGlobalErrorListener globalErrorListener)
+
+    private RestClient(@NonNull OkHttpClient.Builder builder, @NonNull JsonParserWorker errorParser, @NonNull String networkFailureMessage,
+                       boolean loggingEnabled, @Nullable OnGlobalErrorListener globalErrorListener)
     {
         this.errorParser = errorParser;
         this.loggingEnabled = loggingEnabled;
-        this.failureMessage = failureMessage;
+        this.failureMessage = networkFailureMessage;
         this.globalErrorListener = globalErrorListener;
-        mediaTypeJson = MediaType.parse("application/json; charset=utf-8");
 
-        OkHttpClient.Builder builder;
-
-        // NEVER EVER ENABLE THIS FOR RELEASE BUILD IF YOU DON'T KNOW WHAT YOU ARE DOING
-        if (trustAllCertificates)
+        // add Accept-Language Header Interceptor
+        builder.addInterceptor(new Interceptor()
         {
-            final TrustManager[] trustAllCerts = new TrustManager[]{
-                    new X509TrustManager()
-                    {
-                        @Override
-                        public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException
-                        {
-                        }
-
-                        @Override
-                        public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException
-                        {
-                        }
-
-                        @Override
-                        public java.security.cert.X509Certificate[] getAcceptedIssuers()
-                        {
-                            return new java.security.cert.X509Certificate[]{};
-                        }
-                    }
-            };
-
-            // Install the all-trusting trust manager
-            SSLSocketFactory sslSocketFactory = null;
-            try
+            @Override
+            public Response intercept(Chain chain) throws IOException
             {
-                final SSLContext sslContext = SSLContext.getInstance("SSL");
-                sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
-
-                // Create an ssl socket factory with our all-trusting manager
-                sslSocketFactory = sslContext.getSocketFactory();
+                Request originalRequest = chain.request();
+                Request requestWithHeaders = originalRequest.newBuilder()
+                        .header("Accept-Language", localeToBcp47Language(Locale.getDefault()))
+                        .build();
+                return chain.proceed(requestWithHeaders);
             }
-
-            catch (Exception e)
-            {
-                e.printStackTrace();
-            }
-
-            builder = new OkHttpClient.Builder()
-                    .sslSocketFactory(sslSocketFactory, (X509TrustManager) trustAllCerts[0])
-                    .hostnameVerifier(new HostnameVerifier()
-                    {
-                        @Override
-                        public boolean verify(String hostname, SSLSession session)
-                        {
-                            return true;
-                        }
-                    });
-        }
-        else
-            builder = new OkHttpClient.Builder();
-
-
-        builder
-                .cache(cache)
-                .followRedirects(true)
-                .followSslRedirects(true)
-                .retryOnConnectionFailure(true)
-                .connectTimeout(connectTimeout, TimeUnit.SECONDS)
-                .readTimeout(readTimeout, TimeUnit.SECONDS)
-                .addInterceptor(new Interceptor()
-                {
-                    @Override
-                    public Response intercept(Chain chain) throws IOException
-                    {
-                        Request originalRequest = chain.request();
-                        Request requestWithHeaders = originalRequest.newBuilder()
-                                .header("Accept-Language", localeToBcp47Language(Locale.getDefault()))
-                                .build();
-                        return chain.proceed(requestWithHeaders);
-                    }
-                });
+        });
 
         client = enableTls12OnPreLollipop(builder).build();
     }
@@ -165,11 +97,6 @@ public class RestClient
     public boolean isLoggingEnabled()
     {
         return loggingEnabled;
-    }
-
-    public MediaType getMediaTypeJson()
-    {
-        return mediaTypeJson;
     }
 
     public JsonParserWorker getErrorParser()
@@ -221,6 +148,11 @@ public class RestClient
     public <T> RestCall makeCall(final Request request, final boolean callGlobalErrorListener, final JsonParserWorker jsonParserWorker, final RestResponse<T> callback)
     {
         return new RestCall(request, client.newCall(request), callGlobalErrorListener, jsonParserWorker, callback);
+    }
+
+    public WebSocket makeWebSocket(@NonNull final Request request, WebSocketListener listener)
+    {
+        return client.newWebSocket(request, listener);
     }
 
     public <T> RestCall makeAndExecuteCall(final Request request, final boolean callGlobalErrorListener, final JsonParserWorker jsonParserWorker, final RestResponse<T> callback)
@@ -390,12 +322,12 @@ public class RestClient
     }
 
     /*
-    * From https://github.com/apache/cordova-plugin-globalization/blob/master/src/android/Globalization.java#L140
-    * @Description: Returns a well-formed ITEF BCP 47 language tag representing
-    * the locale identifier for the client's current locale
-    *
-    * @Return: String: The BCP 47 language tag for the current locale
-    */
+     * From https://github.com/apache/cordova-plugin-globalization/blob/master/src/android/Globalization.java#L140
+     * @Description: Returns a well-formed ITEF BCP 47 language tag representing
+     * the locale identifier for the client's current locale
+     *
+     * @Return: String: The BCP 47 language tag for the current locale
+     */
     public static String localeToBcp47Language(Locale loc)
     {
         final char SEP = '-';       // we will use a dash as per BCP 47
