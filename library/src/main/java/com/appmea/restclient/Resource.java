@@ -1,8 +1,7 @@
 package com.appmea.restclient;
 
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import okhttp3.Call;
 import okhttp3.Response;
 
@@ -14,8 +13,10 @@ public class Resource<T>
         ERROR
     }
 
-    @NonNull public Status status;
-    @Nullable public T data;
+    @NonNull
+    public Status status;
+    @Nullable
+    public T data;
     @Nullable public Call call;
     @Nullable public Response response;
     @Nullable public Error error;
