@@ -17,10 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
+
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -86,7 +83,7 @@ public class RestClient
             }
         });
 
-        client = enableTls12OnPreLollipop(builder).build();
+        client = builder.build();
     }
 
     public OkHttpClient getClient()
@@ -114,35 +111,6 @@ public class RestClient
         return globalErrorListener;
     }
 
-    private static OkHttpClient.Builder enableTls12OnPreLollipop(OkHttpClient.Builder client)
-    {
-        if (Build.VERSION.SDK_INT >= 16 && Build.VERSION.SDK_INT <= 21)
-        {
-            try
-            {
-                SSLContext sc = SSLContext.getInstance("TLSv1.2");
-                sc.init(null, null, null);
-                client.sslSocketFactory(new Tls12SocketFactory(sc.getSocketFactory()));
-
-                ConnectionSpec cs = new ConnectionSpec.Builder(ConnectionSpec.MODERN_TLS)
-                        .tlsVersions(TlsVersion.TLS_1_2)
-                        .build();
-
-                List<ConnectionSpec> specs = new ArrayList<>();
-                specs.add(cs);
-                specs.add(ConnectionSpec.COMPATIBLE_TLS);
-                specs.add(ConnectionSpec.CLEARTEXT);
-
-                client.connectionSpecs(specs);
-            }
-            catch (Exception e)
-            {
-                e.printStackTrace();
-            }
-        }
-
-        return client;
-    }
 
     @SuppressWarnings("unchecked")
     public <T> RestCall makeCall(final Request request, final boolean callGlobalErrorListener, final JsonParserWorker jsonParserWorker, final RestResponse<T> callback)
