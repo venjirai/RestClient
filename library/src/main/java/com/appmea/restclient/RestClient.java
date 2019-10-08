@@ -1,7 +1,6 @@
 package com.appmea.restclient;
 
 
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -9,28 +8,18 @@ import android.util.Log;
 import org.json.JSONException;
 
 import java.io.IOException;
-import java.security.cert.CertificateException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.TimeUnit;
-
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.SSLContext;
 
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import okhttp3.Cache;
 import okhttp3.Call;
 import okhttp3.Callback;
-import okhttp3.ConnectionSpec;
 import okhttp3.Interceptor;
-import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
-import okhttp3.TlsVersion;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
 
