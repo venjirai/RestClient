@@ -194,6 +194,9 @@ public class RestClient
                     // parsing error
                     catch (final Exception e)
                     {
+                        if (loggingEnabled)
+                            Log.w("RestClient", "onFailure[" + restCall.request.tag() + "]: " + responseBody);
+
                         e.printStackTrace();
                         handler.post(new Runnable()
                         {
